@@ -8,7 +8,7 @@ import {
 import { Azkar, Zekr } from "@/src/interfaces/zekr.interface";
 
 export default async function AzkarPage() {
-  const res = await fetch("http://localhost:3000/api/azkar");
+  const res = await fetch("/api/azkar");
   const azkarResponse: Azkar = await res.json();
   const azkar: Zekr[] = azkarResponse.data;
 

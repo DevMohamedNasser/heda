@@ -7,7 +7,7 @@ import {
 import { Adaiya, Doaa } from "@/src/interfaces/doaa.interface";
 
 export default async function AdaiyaPage() {
-  const res = await fetch("http://localhost:3000/api/adaiya");
+  const res = await fetch("/api/adaiya");
   const azkarResponse: Adaiya = await res.json();
   const azkar: Doaa[] = azkarResponse.data;
 
