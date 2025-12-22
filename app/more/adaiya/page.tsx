@@ -7,7 +7,12 @@ import {
 import { Adaiya, Doaa } from "@/src/interfaces/doaa.interface";
 
 export default async function AdaiyaPage() {
-  const res = await fetch("/api/adaiya");
+
+  const baseUrl = process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : "http://localhost:3000";
+
+  const res = await fetch(`${baseUrl}/api/adaiya`);
   const azkarResponse: Adaiya = await res.json();
   const azkar: Doaa[] = azkarResponse.data;
 

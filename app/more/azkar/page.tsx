@@ -8,7 +8,12 @@ import {
 import { Azkar, Zekr } from "@/src/interfaces/zekr.interface";
 
 export default async function AzkarPage() {
-  const res = await fetch("/api/azkar");
+
+  const baseUrl = process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : "http://localhost:3000";
+
+  const res = await fetch(`${baseUrl}/api/azkar`);
   const azkarResponse: Azkar = await res.json();
   const azkar: Zekr[] = azkarResponse.data;
 
