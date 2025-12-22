@@ -35,7 +35,7 @@ export default function Navbar() {
     <nav className="fixed bottom-0 right-0 left-0 z-50 border-t bg-background">
       <ul className="flex justify-around py-2">
         {items.map(({ label, icon: Icon, href }) => {
-          const active = pathname === href;
+          const active = pathname === href || pathname.startsWith(href + "/");
           return (
             <li key={href}>
               <Link

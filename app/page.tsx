@@ -1,65 +1,72 @@
-import Image from "next/image";
+import Link from "next/link";
+import { Book, Star, Heart, Zap, Headphones, Download, Users, Clock, Compass } from "lucide-react";
 
 export default function Home() {
+  const features = [
+    { name: "أحاديث", href: "/more/narrators", icon: Book, color: "bg-yellow-50 text-yellow-700" },
+    { name: "أذكار", href: "/more/azkar", icon: Star, color: "bg-purple-50 text-purple-700" },
+    { name: "أدعية", href: "/more/adaiya", icon: Heart, color: "bg-pink-50 text-pink-700" },
+    { name: "السبحة الرقمية", href: "/more/sebha", icon: Zap, color: "bg-indigo-50 text-indigo-700" },
+    { name: "حاسبة الزكاة", href: "/more/zakah", icon: Star, color: "bg-green-50 text-green-700" },
+  ];
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="mb-16 flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-black font-sans p-6">
+      <main className="flex flex-col items-center justify-center max-w-5xl gap-10 text-center">
+
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="w-24 h-24 text-blue-600 dark:text-blue-400"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7l3-7z"
+          />
+        </svg>
+
+        <h1 className="text-4xl font-bold text-black dark:text-white">
+          تطبيق المسلم
+        </h1>
+
+        <div className="flex flex-col items-start gap-2 text-left">
+          <Feature icon={Book} text="قراءة القرآن الكريم" color="text-yellow-500" />
+          <Feature icon={Headphones} text="الاستماع للقرآن +9 مقرئين" color="text-purple-500" />
+          <Feature icon={Download} text="تنزيل السور والأجزاء" color="text-green-500" />
+          <Feature icon={Clock} text="أوقات الصلاة تلقائيًا حسب موقعك" color="text-blue-500" />
+          <Feature icon={Compass} text="معرفة اتجاه القبلة بدقة" color="text-red-500" />
+          <Feature icon={Users} text="أذكار، أدعية، السبحة الرقمية وحاسبة الزكاة" color="text-pink-500" />
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        {/* Grid للميزات الأساسية (Feature Cards) */}
+        <div className="grid grid-cols-3 sm:grid-cols-5 gap-4 w-full justify-items-center">
+          {features.map((feature) => (
+            <Link key={feature.name} href={feature.href} className="block w-full">
+              <div
+                className={`p-4 flex flex-col items-center justify-center text-center hover:shadow-lg transition-shadow cursor-pointer ${feature.color} rounded-lg`}
+              >
+                <feature.icon className="w-6 h-6 mb-1" />
+                <span className="font-semibold text-base">{feature.name}</span>
+              </div>
+            </Link>
+          ))}
         </div>
+
       </main>
+    </div>
+  );
+}
+
+// مكون Feature صغير للنصوص مع أيقونات
+function Feature({ icon: Icon, text, color }: { icon: any; text: string; color: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <Icon className={`w-5 h-5 ${color}`} />
+      <span className="text-lg text-zinc-700 dark:text-zinc-300">{text}</span>
     </div>
   );
 }

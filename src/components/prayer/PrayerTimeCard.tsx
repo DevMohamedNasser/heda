@@ -20,7 +20,7 @@
 //   const [data, setData] = useState<any>(null);
 //   const [loading, setLoading] = useState(true);
 //   const [error, setError] = useState<string | null>(null);
-//   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+//   // const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
 
 //   const fetchPrayerTimes = async (date?: Date) => {
 //     setLoading(true);
@@ -92,7 +92,7 @@
 //         <div className="flex justify-center">
 //           <DatePicker
 //             onSelectDate={(date) => {
-//               setSelectedDate(date);
+//               // setSelectedDate(date);
 //               fetchPrayerTimes(date);
 //             }}
 //           />
@@ -136,25 +136,16 @@
 
 
 
+"use client";
 
-
-
-
-
-
-'use client';
-
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sunrise, Sunset } from "lucide-react";
 import { DatePicker } from "./DatePicker";
 import { Data } from "@/src/interfaces/prayTimes.interface";
 
-interface Props {
-  data: Data; // البيانات الفعلية من API
-}
-
-// دالة لتحويل الوقت من 24 ساعة → 12 ساعة
-function formatTo12Hour(time24: string) {
+// دالة تحويل الوقت من 24h إلى 12h
+export function formatTo12Hour(time24: string) {
   if (!time24) return "";
   const [hourStr, minute] = time24.split(":");
   let hour = parseInt(hourStr);
@@ -163,60 +154,64 @@ function formatTo12Hour(time24: string) {
   return `${hour}:${minute} ${ampm}`;
 }
 
-interface Props {
-  data: Data;
+interface PrayerTimesCardProps {
+  initialData: Data;
+  onDateChange: (date: Date) => void;
 }
 
+export default function PrayerTimesCard({ initialData, onDateChange }: PrayerTimesCardProps) {
+  const [prayerData, setPrayerData] = useState<Data>(initialData);
 
-export default function PrayerTimesCard({ data }: Props) {
   const prayers = [
-    { name: "الفجر", time: formatTo12Hour(data.timings.Fajr) },
-    { name: "الظهر", time: formatTo12Hour(data.timings.Dhuhr) },
-    { name: "العصر", time: formatTo12Hour(data.timings.Asr) },
-    { name: "المغرب", time: formatTo12Hour(data.timings.Maghrib) },
-    { name: "العشاء", time: formatTo12Hour(data.timings.Isha) },
+    { name: "الفجر", time: formatTo12Hour(prayerData.timings.Fajr) },
+    { name: "الظهر", time: formatTo12Hour(prayerData.timings.Dhuhr) },
+    { name: "العصر", time: formatTo12Hour(prayerData.timings.Asr) },
+    { name: "المغرب", time: formatTo12Hour(prayerData.timings.Maghrib) },
+    { name: "العشاء", time: formatTo12Hour(prayerData.timings.Isha) },
   ];
 
   return (
-    <Card className="w-full max-w-md mx-auto bg-gradient-to-br from-sky-900/90 to-emerald-900/90 text-white backdrop-blur-xl border border-white/10 shadow-2xl rounded-2xl mt-10 mb-16">
-      <CardHeader className="text-center space-y-1">
+    <Card className="w-full max-w-md mx-auto bg-linear-to-br from-sky-900/90 to-emerald-900/90 text-white backdrop-blur-xl border border-white/10 shadow-2xl rounded-2xl mt-10 mb-16">
+      <CardHeader className="text-center space-y-2">
         <CardTitle className="text-2xl font-bold">🕌 مواقيت الصلاة</CardTitle>
         <p className="text-sm text-white/80">
-          {data.date.hijri.weekday.ar} — {data.date.readable}
+          {prayerData.date.hijri.weekday.ar} — {prayerData.date.readable}
         </p>
         <p className="text-xs text-white/60">
-          {data.date.hijri.date} هـ - {data.date.hijri.month.ar}
+          {prayerData.date.hijri.date} هـ - {prayerData.date.hijri.month.ar}
         </p>
 
-        {/* DatePicker داخل الكارد */}
         <div className="flex justify-center mt-2">
-          <DatePicker />
+          <DatePicker
+            onSelectDate={(date) => {
+              onDateChange(date);
+            }}
+          />
         </div>
       </CardHeader>
 
       <CardContent className="space-y-6">
-        {/* Sunrise & Sunset */}
+        {/* الشروق والغروب */}
         <div className="flex justify-between gap-4">
           <div className="flex items-center gap-2 bg-white/10 rounded-xl px-4 py-2 w-full">
             <Sunrise className="text-yellow-300" />
             <div>
               <p className="text-xs text-white/60">الشروق</p>
-              <p className="font-semibold">{data.timings.Sunrise}</p>
+              <p className="font-semibold">{prayerData.timings.Sunrise}</p>
             </div>
           </div>
-
           <div className="flex items-center gap-2 bg-white/10 rounded-xl px-4 py-2 w-full">
             <Sunset className="text-orange-300" />
             <div>
               <p className="text-xs text-white/60">الغروب</p>
-              <p className="font-semibold">{data.timings.Sunset}</p>
+              <p className="font-semibold">{prayerData.timings.Sunset}</p>
             </div>
           </div>
         </div>
 
-        {/* Prayer Times */}
+        {/* أوقات الصلاة */}
         <div className="space-y-3">
-          {prayers.map(prayer => (
+          {prayers.map((prayer) => (
             <div
               key={prayer.name}
               className="flex justify-between items-center bg-white/10 rounded-xl px-4 py-3 hover:bg-white/20 transition"
