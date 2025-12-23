@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export default function QiblaPage() {
   const [qiblaAngle, setQiblaAngle] = useState<number | null>(null);
@@ -11,7 +11,7 @@ export default function QiblaPage() {
   const smoothFactor = 0.15;
 
   /* =========================
-     حساب زاوية القبلة (صحيح 100%)
+     حساب زاوية القبلة (Bearing)
      ========================= */
   function getQiblaAngle(lat: number, lng: number) {
     const kaabaLat = 21.4225 * Math.PI / 180;
@@ -28,21 +28,31 @@ export default function QiblaPage() {
   }
 
   /* =========================
-     جلب الموقع
+     جلب الموقع (بدون تحذير React)
      ========================= */
   useEffect(() => {
-    if (!navigator.geolocation) {
-      setError("المتصفح لا يدعم تحديد الموقع");
-      return;
-    }
+    const getLocation = () => {
+      if (!navigator.geolocation) {
+        setTimeout(() => {
+          setError("المتصفح لا يدعم تحديد الموقع");
+        }, 0);
+        return;
+      }
 
-    navigator.geolocation.getCurrentPosition(
-      pos => {
-        const { latitude, longitude } = pos.coords;
-        setQiblaAngle(getQiblaAngle(latitude, longitude));
-      },
-      () => setError("فشل تحديد الموقع")
-    );
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          const { latitude, longitude } = pos.coords;
+          setQiblaAngle(getQiblaAngle(latitude, longitude));
+        },
+        () => {
+          setTimeout(() => {
+            setError("فشل تحديد الموقع");
+          }, 0);
+        }
+      );
+    };
+
+    getLocation();
   }, []);
 
   /* =========================
@@ -52,13 +62,13 @@ export default function QiblaPage() {
     const handleOrientation = (e: DeviceOrientationEvent) => {
       let heading: number | null = null;
 
-      // أدق قراءة (iOS)
+      // iOS (الأدق)
       if (typeof (e as any).webkitCompassHeading === "number") {
         heading = (e as any).webkitCompassHeading;
       }
-      // fallback
+      // fallback (Android / Desktop)
       else if (typeof e.alpha === "number") {
-        heading = 360 - e.alpha;
+        heading = e.alpha;
       }
 
       if (heading !== null) {
@@ -71,32 +81,48 @@ export default function QiblaPage() {
       }
     };
 
-    if (typeof (DeviceOrientationEvent as any).requestPermission === "function") {
-      (DeviceOrientationEvent as any)
-        .requestPermission()
-        .then((res: string) => {
+    const requestPermission = async () => {
+      if (
+        typeof (DeviceOrientationEvent as any).requestPermission === "function"
+      ) {
+        try {
+          const res = await (DeviceOrientationEvent as any).requestPermission();
           if (res === "granted") {
             window.addEventListener("deviceorientation", handleOrientation, true);
-          } else setError("تم رفض الوصول للبوصلة");
-        })
-        .catch(() => setError("فشل الوصول للبوصلة"));
-    } else {
-      window.addEventListener("deviceorientation", handleOrientation, true);
-    }
+          } else {
+            setError("تم رفض الوصول للبوصلة");
+          }
+        } catch {
+          setError("فشل الوصول للبوصلة");
+        }
+      } else {
+        window.addEventListener("deviceorientation", handleOrientation, true);
+      }
+    };
+
+    requestPermission();
 
     return () => {
       window.removeEventListener("deviceorientation", handleOrientation);
     };
   }, []);
 
-  if (error) return <p className="text-red-500 text-center mt-10">{error}</p>;
-  if (qiblaAngle === null) return <p className="text-center mt-10">جاري تحديد اتجاه القبلة...</p>;
+  if (error) {
+    return (
+      <p className="text-red-500 text-center mt-10">{error}</p>
+    );
+  }
+
+  if (qiblaAngle === null) {
+    return (
+      <p className="text-center mt-10">جاري تحديد اتجاه القبلة...</p>
+    );
+  }
 
   /* =========================
-     تصحيح بسيط جدًا (2°) بسبب المجال المغناطيسي
+     الزاوية النهائية (صح حسابيًا)
      ========================= */
-  const magneticCorrection = -2;
-
+  const magneticCorrection = 2; // ميل بسيط مع عقارب الساعة
   const arrowAngle =
     (qiblaAngle - deviceAngle + magneticCorrection + 360) % 360;
 
@@ -108,17 +134,17 @@ export default function QiblaPage() {
 
       {/* البوصلة */}
       <div className="relative w-48 h-48 rounded-full bg-gray-800 dark:bg-gray-900">
-        {/* السهم (مركزه منتصف الدائرة) */}
+        {/* الخط – بدايته ثابتة في المركز */}
         <div
-          className="absolute left-1/2 top-1/2 w-[3px] h-[96px] bg-yellow-400 origin-bottom transition-transform duration-100"
+          className="absolute left-1/2 top-1/2 w-[3px] h-[82px] bg-yellow-400 origin-top transition-transform duration-100"
           style={{
             transform: `translateX(-50%) rotate(${arrowAngle}deg)`
           }}
         />
 
-        {/* رأس السهم (فوق) */}
+        {/* رأس السهم – فوق ويلامس المحيط */}
         <div
-          className="absolute left-1/2 top-[calc(50%-96px)] w-0 h-0
+          className="absolute left-1/2 top-[calc(50%-82px)] w-0 h-0
                      border-l-[7px] border-l-transparent
                      border-r-[7px] border-r-transparent
                      border-b-[14px] border-b-yellow-400"
@@ -128,7 +154,8 @@ export default function QiblaPage() {
         />
 
         {/* الكعبة */}
-        <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-3xl">
+        <span className="absolute left-1/2 top-1/2 
+          -translate-x-1/2 -translate-y-1/2 text-3xl">
           🕋
         </span>
       </div>
