@@ -133,7 +133,7 @@ export default function QiblaPage() {
       </div>
       <p className="mt-4 text-gray-700 dark:text-gray-300 text-sm max-w-sm text-center">
         ⚠️ اتجاه القبلة يعتمد على البوصلة وقد يتأثر بالمجال المغناطيسي للأرض.
-        يُفضل معايرة الهاتف بتحريكه على شكل رقم 8.
+        يُفضل معايرة الهاتف بتحريكه على شكل رقم ٥.
       </p>
     </div>
   );
