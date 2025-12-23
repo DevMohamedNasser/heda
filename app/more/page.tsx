@@ -4,7 +4,7 @@ import { Book, Star, Heart, Zap, User } from "lucide-react";
 import ShareSiteCard from "@/src/components/more/ShareSiteCard";
 
 export default function More() {
-  const siteUrl = "https://devmohamednasser.github.io/";
+  const siteUrl = "https://heda-app.vercel.app";
 
   const features = [
     {
