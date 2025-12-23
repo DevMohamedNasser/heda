@@ -11,10 +11,9 @@
 //   const [hourStr, minute] = time24.split(":");
 //   let hour = parseInt(hourStr);
 //   const ampm = hour >= 12 ? "م" : "ص";
-//   hour = hour % 12 || 12; 
+//   hour = hour % 12 || 12;
 //   return `${hour}:${minute} ${ampm}`;
 // }
-
 
 // export default function PrayerTimesCard() {
 //   const [data, setData] = useState<any>(null);
@@ -59,7 +58,7 @@
 //   };
 
 //   useEffect(() => {
-//     fetchPrayerTimes(); 
+//     fetchPrayerTimes();
 //   }, []);
 
 //   if (loading)
@@ -75,7 +74,6 @@
 //   { name: "المغرب", time: formatTo12Hour(data.timings.Maghrib) },
 //   { name: "العشاء", time: formatTo12Hour(data.timings.Isha) },
 // ];
-
 
 //   return (
 //     <Card className="w-full max-w-md mx-auto bg-gradient-to-br from-sky-900/90 to-emerald-900/90 text-white backdrop-blur-xl border border-white/10 shadow-2xl rounded-2xl mt-10 mb-16">
@@ -134,8 +132,6 @@
 //   );
 // }
 
-
-
 "use client";
 
 import { useState } from "react";
@@ -144,7 +140,6 @@ import { Sunrise, Sunset } from "lucide-react";
 import { DatePicker } from "./DatePicker";
 import { Data } from "@/src/interfaces/prayTimes.interface";
 
-// دالة تحويل الوقت من 24h إلى 12h
 export function formatTo12Hour(time24: string) {
   if (!time24) return "";
   const [hourStr, minute] = time24.split(":");
@@ -159,7 +154,10 @@ interface PrayerTimesCardProps {
   onDateChange: (date: Date) => void;
 }
 
-export default function PrayerTimesCard({ initialData, onDateChange }: PrayerTimesCardProps) {
+export default function PrayerTimesCard({
+  initialData,
+  onDateChange,
+}: PrayerTimesCardProps) {
   const [prayerData, setPrayerData] = useState<Data>(initialData);
 
   const prayers = [
@@ -197,14 +195,18 @@ export default function PrayerTimesCard({ initialData, onDateChange }: PrayerTim
             <Sunrise className="text-yellow-300" />
             <div>
               <p className="text-xs text-white/60">الشروق</p>
-              <p className="font-semibold">{prayerData.timings.Sunrise}</p>
+              <p className="font-semibold">
+                {formatTo12Hour(prayerData.timings.Sunrise)}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-2 bg-white/10 rounded-xl px-4 py-2 w-full">
             <Sunset className="text-orange-300" />
             <div>
               <p className="text-xs text-white/60">الغروب</p>
-              <p className="font-semibold">{prayerData.timings.Sunset}</p>
+              <p className="font-semibold">
+                {formatTo12Hour(prayerData.timings.Sunset)}
+              </p>
             </div>
           </div>
         </div>
