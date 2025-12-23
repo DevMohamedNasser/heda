@@ -113,7 +113,7 @@ export default function QiblaPage() {
   const [deviceAngle, setDeviceAngle] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
 
-  // حساب زاوية القبلة
+  // حساب زاوية القبلة بدقة
   function getQiblaAngle(lat: number, lng: number) {
     const kaabaLat = 21.4225 * Math.PI / 180;
     const kaabaLng = 39.8262 * Math.PI / 180;
@@ -129,10 +129,9 @@ export default function QiblaPage() {
     return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
   }
 
-  // الحصول على الموقع
+  // الحصول على الموقع الجغرافي
   useEffect(() => {
     if (!navigator.geolocation) {
-      // تجنب التحذير باستخدام setTimeout
       setTimeout(() => setError("المتصفح لا يدعم تحديد الموقع"), 0);
       return;
     }
@@ -146,26 +145,34 @@ export default function QiblaPage() {
     );
   }, []);
 
-  // حركة الجهاز مع معايرة
+  // متابعة حركة الجهاز وتحديث السهم
   useEffect(() => {
     const handleOrientation = (e: DeviceOrientationEvent) => {
       let alpha = e.alpha ?? 0;
 
-      // iOS: webkitCompassHeading موجودة
+      // iOS
       const webkitHeading = (e as any).webkitCompassHeading;
-      if (typeof webkitHeading === "number") {
-        alpha = webkitHeading;
-      }
+      if (typeof webkitHeading === "number") alpha = webkitHeading;
 
-      setDeviceAngle(alpha);
+      requestAnimationFrame(() => setDeviceAngle(alpha));
     };
 
-    window.addEventListener("deviceorientationabsolute", handleOrientation, true);
-    window.addEventListener("deviceorientation", handleOrientation, true);
+    // طلب إذن على iOS 13+
+    if (typeof (DeviceOrientationEvent as any).requestPermission === "function") {
+      (DeviceOrientationEvent as any)
+        .requestPermission()
+        .then((permissionState: "granted" | "denied") => {
+          if (permissionState === "granted") {
+            window.addEventListener("deviceorientationabsolute", handleOrientation, true);
+          } else setError("تم رفض الوصول للبوصلة");
+        })
+        .catch(() => setError("فشل الوصول للبوصلة"));
+    } else {
+      window.addEventListener("deviceorientationabsolute", handleOrientation, true);
+    }
 
     return () => {
       window.removeEventListener("deviceorientationabsolute", handleOrientation);
-      window.removeEventListener("deviceorientation", handleOrientation);
     };
   }, []);
 
@@ -185,7 +192,7 @@ export default function QiblaPage() {
       <div className="relative w-48 h-48 rounded-full bg-gray-800 dark:bg-gray-900 flex items-center justify-center">
         {/* جسم السهم */}
         <div
-          className="absolute bottom-1/2 left-1/2 w-1 h-24 bg-white dark:bg-yellow-400 origin-bottom transition-transform duration-150 ease-out"
+          className="absolute bottom-1/2 left-1/2 w-1 h-24 bg-white dark:bg-yellow-400 origin-bottom transition-transform duration-100 ease-out"
           style={{ transform: `translateX(-50%) rotate(${arrowAngle}deg)` }}
         />
         {/* رأس السهم */}

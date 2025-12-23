@@ -113,5 +113,5 @@ export default function PrayerPage() {
   if (error) return <div className="text-center mt-10 text-red-500">{error}</div>;
   if (!data) return null;
 
-  return <PrayerTimesCard initialData={data} onDateChange={fetchPrayerTimes} />;
+  return <div className="px-2"><PrayerTimesCard initialData={data} onDateChange={fetchPrayerTimes} /></div>;
 }
