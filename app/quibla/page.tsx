@@ -9,8 +9,8 @@ export default function QiblaPage() {
 
   const lastHeadingRef = useRef(0);
   const headingBuffer = useRef<number[]>([]);
-  const smoothFactor = 0.08;
-  const stableThreshold = 1.5; // أقل تغيير مسموح للثبات
+  const smoothFactor = 0.15; // smoothing أسرع وأكثر سلاسة
+  const stableThreshold = 3; // الفرق المسموح لتثبيت السهم أول مرة
 
   function getQiblaAngle(lat: number, lng: number) {
     const kaabaLat = 21.4225 * Math.PI / 180;
@@ -62,15 +62,14 @@ export default function QiblaPage() {
 
       if (heading === null) return;
 
-      // buffer آخر 10 قراءات لتثبيت السهم
+      // buffer ديناميكي آخر 10 قراءات
       headingBuffer.current.push(heading);
       if (headingBuffer.current.length > 10) headingBuffer.current.shift();
 
-      // حساب متوسط القراءة المستقرة
+      // لو السهم لسه ما اتثبتش، ننتظر ثبات buffer
       const max = Math.max(...headingBuffer.current);
       const min = Math.min(...headingBuffer.current);
-      if (max - min < stableThreshold) {
-        // smoothing
+      if (Math.abs(max - min) < stableThreshold || lastHeadingRef.current !== 0) {
         const avgHeading = headingBuffer.current.reduce((a, b) => a + b, 0) / headingBuffer.current.length;
         const smooth = smoothHeading(lastHeadingRef.current, avgHeading, smoothFactor);
         lastHeadingRef.current = smooth;
@@ -111,14 +110,14 @@ export default function QiblaPage() {
       </p>
       <div className="relative w-48 h-48 rounded-full bg-gray-800 dark:bg-gray-900">
         <div
-          className="absolute left-1/2 top-1/2 w-[3px] h-[82px] bg-yellow-400 origin-top transition-transform duration-100"
+          className="absolute left-1/2 top-1/2 w-[3px] h-[82px] bg-yellow-400 origin-top transition-transform duration-75"
           style={{ transform: `translateX(-50%) rotate(${arrowAngle}deg)` }}
         />
         <div
           className="absolute left-1/2 top-[calc(50%-82px)] w-0 h-0
                      border-l-[7px] border-l-transparent
                      border-r-[7px] border-r-transparent
-                     border-b-[14px] border-b-yellow-400"
+                     border-b-[14px] border-b-yellow-400 transition-transform duration-75"
           style={{ transform: `translateX(-50%) rotate(${arrowAngle}deg)` }}
         />
         <span className="absolute left-1/2 top-1/2
@@ -128,7 +127,7 @@ export default function QiblaPage() {
       </div>
       <p className="mt-4 text-gray-700 dark:text-gray-300 text-sm max-w-sm text-center">
         ⚠️ اتجاه القبلة يعتمد على البوصلة وقد يتأثر بالمجال المغناطيسي للأرض.
-        يُفضل معايرة الهاتف بتحريكه على شكل رقم 7.
+        يُفضل تحريك الهاتف على شكل رقم 8 للمعايرة.
       </p>
     </div>
   );
