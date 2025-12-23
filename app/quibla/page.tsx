@@ -5,13 +5,12 @@ import { useEffect, useRef, useState } from "react";
 export default function QiblaPage() {
   const [qiblaAngle, setQiblaAngle] = useState<number | null>(null);
   const [deviceHeading, setDeviceHeading] = useState<number | null>(null);
-  const [deviceCorrection, setDeviceCorrection] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const lastHeadingRef = useRef(0);
   const headingBuffer = useRef<number[]>([]);
-  const smoothFactor = 0.08; // يزيد السلاسة
-  const stableThreshold = 1.5; // أقل تغيير مسموح للثبات بالدرجات
+  const smoothFactor = 0.08;
+  const stableThreshold = 1.5; // أقل تغيير مسموح للثبات
 
   function getQiblaAngle(lat: number, lng: number) {
     const kaabaLat = 21.4225 * Math.PI / 180;
@@ -52,9 +51,6 @@ export default function QiblaPage() {
   useEffect(() => {
     if (!qiblaAngle) return;
 
-    const savedCorrection = localStorage.getItem("qiblaCorrection");
-    if (savedCorrection) setDeviceCorrection(parseFloat(savedCorrection));
-
     const handleOrientation = (e: DeviceOrientationEvent) => {
       let heading: number | null = null;
 
@@ -66,28 +62,20 @@ export default function QiblaPage() {
 
       if (heading === null) return;
 
-      // إذا التصحيح مش موجود، ننتظر أول قراءة مستقرة
-      if (!deviceCorrection) {
-        headingBuffer.current.push(heading);
-        if (headingBuffer.current.length >= 10) {
-          const max = Math.max(...headingBuffer.current);
-          const min = Math.min(...headingBuffer.current);
-          if (max - min < stableThreshold) {
-            // ثبات كافي -> نحدد التصحيح
-            const avgHeading = headingBuffer.current.reduce((a, b) => a + b, 0) / headingBuffer.current.length;
-            const correction = qiblaAngle - avgHeading;
-            setDeviceCorrection(correction);
-            localStorage.setItem("qiblaCorrection", correction.toString());
-          }
-          headingBuffer.current.shift(); // نحافظ على آخر 10 قراءات
-        }
-        return;
-      }
+      // buffer آخر 10 قراءات لتثبيت السهم
+      headingBuffer.current.push(heading);
+      if (headingBuffer.current.length > 10) headingBuffer.current.shift();
 
-      // smoothing لكل قراءة
-      const smooth = smoothHeading(lastHeadingRef.current, heading, smoothFactor);
-      lastHeadingRef.current = smooth;
-      setDeviceHeading(smooth);
+      // حساب متوسط القراءة المستقرة
+      const max = Math.max(...headingBuffer.current);
+      const min = Math.min(...headingBuffer.current);
+      if (max - min < stableThreshold) {
+        // smoothing
+        const avgHeading = headingBuffer.current.reduce((a, b) => a + b, 0) / headingBuffer.current.length;
+        const smooth = smoothHeading(lastHeadingRef.current, avgHeading, smoothFactor);
+        lastHeadingRef.current = smooth;
+        setDeviceHeading(smooth);
+      }
     };
 
     const requestPermission = async () => {
@@ -108,13 +96,13 @@ export default function QiblaPage() {
     requestPermission();
 
     return () => window.removeEventListener("deviceorientation", handleOrientation);
-  }, [qiblaAngle, deviceCorrection]);
+  }, [qiblaAngle]);
 
   if (error) return <p className="text-red-500 text-center mt-10">{error}</p>;
-  if (qiblaAngle === null || deviceHeading === null || deviceCorrection === null)
+  if (qiblaAngle === null || deviceHeading === null)
     return <p className="text-center mt-10">جاري تحديد اتجاه القبلة...</p>;
 
-  const arrowAngle = (qiblaAngle - deviceHeading + deviceCorrection + 360) % 360;
+  const arrowAngle = (qiblaAngle - deviceHeading + 360) % 360;
 
   return (
     <div className="flex flex-col items-center justify-center h-screen bg-gray-100 dark:bg-black px-4">
@@ -140,7 +128,7 @@ export default function QiblaPage() {
       </div>
       <p className="mt-4 text-gray-700 dark:text-gray-300 text-sm max-w-sm text-center">
         ⚠️ اتجاه القبلة يعتمد على البوصلة وقد يتأثر بالمجال المغناطيسي للأرض.
-        يُفضل معايرة الهاتف بتحريكه على شكل رقم 5.
+        يُفضل معايرة الهاتف بتحريكه على شكل رقم 7.
       </p>
     </div>
   );
