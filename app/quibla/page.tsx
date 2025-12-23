@@ -8,11 +8,13 @@ export default function QiblaPage() {
   const [error, setError] = useState<string | null>(null);
 
   const lastHeadingRef = useRef(0);
-  const headingBuffer = useRef<number[]>([]);
   const smoothFactor = 0.15;
-  const stableThreshold = 3;
 
+  // ========================
+  // حساب زاوية القبلة من الموقع
+  // ========================
   function getQiblaAngle(lat: number, lng: number) {
+    // إحداثيات الكعبة
     const kaabaLat = 21.4225 * Math.PI / 180;
     const kaabaLng = 39.8262 * Math.PI / 180;
     const userLat = lat * Math.PI / 180;
@@ -26,6 +28,9 @@ export default function QiblaPage() {
     return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
   }
 
+  // ========================
+  // get position once
+  // ========================
   useEffect(() => {
     if (!navigator.geolocation) {
       setError("المتصفح لا يدعم تحديد الموقع");
@@ -33,14 +38,18 @@ export default function QiblaPage() {
     }
 
     navigator.geolocation.getCurrentPosition(
-      pos => {
+      (pos) => {
         const { latitude, longitude } = pos.coords;
-        setQiblaAngle(getQiblaAngle(latitude, longitude));
+        const angle = getQiblaAngle(latitude, longitude);
+        setQiblaAngle(angle);
       },
       () => setError("فشل تحديد الموقع")
     );
   }, []);
 
+  // ========================
+  // smoothing function
+  // ========================
   function smoothHeading(prev: number, next: number, factor: number) {
     let diff = next - prev;
     if (diff > 180) diff -= 360;
@@ -48,27 +57,26 @@ export default function QiblaPage() {
     return prev + diff * factor;
   }
 
+  // ========================
+  // قراءة بوصلة الجهاز لتحريك السهم
+  // ========================
   useEffect(() => {
-    if (!qiblaAngle) return;
+    if (qiblaAngle === null) return;
 
     const handleOrientation = (e: DeviceOrientationEvent) => {
       let heading: number | null = null;
 
+      // iOS
       if (typeof (e as any).webkitCompassHeading === "number") {
-        heading = (e as any).webkitCompassHeading; // iOS true north
-      } else if (typeof e.alpha === "number") {
-        heading = (360 - e.alpha) % 360; // Android magnetic north
+        heading = (e as any).webkitCompassHeading;
+      }
+      // Android
+      else if (typeof e.alpha === "number") {
+        heading = (360 - e.alpha) % 360;
       }
 
       if (heading === null) return;
 
-      // buffer أول 3 قراءات لتثبيت أولي
-      if (headingBuffer.current.length < 3) {
-        headingBuffer.current.push(heading);
-        return;
-      }
-
-      // smoothing لكل قراءة بعد التثبيت
       const smooth = smoothHeading(lastHeadingRef.current, heading, smoothFactor);
       lastHeadingRef.current = smooth;
       setDeviceHeading(smooth);
@@ -94,10 +102,16 @@ export default function QiblaPage() {
     return () => window.removeEventListener("deviceorientation", handleOrientation);
   }, [qiblaAngle]);
 
-  if (error) return <p className="text-red-500 text-center mt-10">{error}</p>;
-  if (qiblaAngle === null || deviceHeading === null)
-    return <p className="text-center mt-10">جاري تحديد اتجاه القبلة...</p>;
+  if (error) return (
+    <p className="text-red-500 text-center mt-10">{error}</p>
+  );
+  if (qiblaAngle === null || deviceHeading === null) return (
+    <p className="text-center mt-10">جاري تحديد اتجاه القبلة...</p>
+  );
 
+  // ========================
+  // زاوية السهم النهائية
+  // ========================
   const arrowAngle = (qiblaAngle - deviceHeading + 360) % 360;
 
   return (
@@ -105,11 +119,13 @@ export default function QiblaPage() {
       <p className="mb-2 text-lg font-semibold text-gray-800 dark:text-gray-200">
         زاوية القبلة: {arrowAngle.toFixed(1)}°
       </p>
+
       <div className="relative w-48 h-48 rounded-full bg-gray-800 dark:bg-gray-900">
         <div
           className="absolute left-1/2 top-1/2 w-[3px] h-[82px] bg-yellow-400 origin-top transition-transform duration-75"
           style={{ transform: `translateX(-50%) rotate(${arrowAngle}deg)` }}
         />
+
         <div
           className="absolute left-1/2 top-[calc(50%-82px)] w-0 h-0
                      border-l-[7px] border-l-transparent
@@ -117,13 +133,16 @@ export default function QiblaPage() {
                      border-b-[14px] border-b-yellow-400 transition-transform duration-75"
           style={{ transform: `translateX(-50%) rotate(${arrowAngle}deg)` }}
         />
+
         <span className="absolute left-1/2 top-1/2
           -translate-x-1/2 -translate-y-1/2 text-3xl">
           🕋
         </span>
       </div>
+
       <p className="mt-4 text-gray-700 dark:text-gray-300 text-sm max-w-sm text-center">
-        ⚠️ اتجاه القبلة يعتمد على بوصلة الجهاز وقد يتأثر بالمجالات المغناطيسية المحيطة.  
+        ⚠️ اتجاه القبلة محسوب بدقة حسب الموقع الجغرافي،  
+        وحركة السهم تعتمد على بوصلة الجهاز وقد تتأثر بالمجالات المغناطيسية.
       </p>
     </div>
   );
