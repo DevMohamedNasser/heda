@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState, useRef } from "react";
 
 export default function QiblaPage() {
   const [qiblaAngle, setQiblaAngle] = useState<number | null>(null);
-  const [heading, setHeading] = useState<number | null>(null);
+  const [deviceAngle, setDeviceAngle] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
 
-  const lastHeading = useRef(0);
+  const lastAngleRef = useRef(0);
   const smoothFactor = 0.15;
 
   /* =========================
@@ -28,11 +28,11 @@ export default function QiblaPage() {
   }
 
   /* =========================
-     تحديد الموقع
+     جلب الموقع
      ========================= */
   useEffect(() => {
     if (!navigator.geolocation) {
-      setError('المتصفح لا يدعم تحديد الموقع');
+      setError("المتصفح لا يدعم تحديد الموقع");
       return;
     }
 
@@ -41,97 +41,84 @@ export default function QiblaPage() {
         const { latitude, longitude } = pos.coords;
         setQiblaAngle(getQiblaAngle(latitude, longitude));
       },
-      () => setError('فشل تحديد الموقع')
+      () => setError("فشل تحديد الموقع")
     );
   }, []);
 
   /* =========================
-     قراءة البوصلة (حل جذري)
+     قراءة البوصلة
      ========================= */
   useEffect(() => {
-    function onOrientation(e: DeviceOrientationEvent) {
-      let angle: number | null = null;
+    const handleOrientation = (e: DeviceOrientationEvent) => {
+      let heading: number | null = null;
 
-      // أدق حل (iOS)
-      if (typeof (e as any).webkitCompassHeading === 'number') {
-        angle = (e as any).webkitCompassHeading;
+      // أدق قراءة (iOS)
+      if (typeof (e as any).webkitCompassHeading === "number") {
+        heading = (e as any).webkitCompassHeading;
       }
       // fallback
-      else if (typeof e.alpha === 'number') {
-        angle = 360 - e.alpha;
+      else if (typeof e.alpha === "number") {
+        heading = 360 - e.alpha;
       }
 
-      if (angle !== null) {
+      if (heading !== null) {
         const smooth =
-          lastHeading.current +
-          (angle - lastHeading.current) * smoothFactor;
+          lastAngleRef.current +
+          (heading - lastAngleRef.current) * smoothFactor;
 
-        lastHeading.current = smooth;
-        setHeading(smooth);
+        lastAngleRef.current = smooth;
+        setDeviceAngle(smooth);
       }
-    }
+    };
 
-    if (
-      typeof (DeviceOrientationEvent as any).requestPermission === 'function'
-    ) {
+    if (typeof (DeviceOrientationEvent as any).requestPermission === "function") {
       (DeviceOrientationEvent as any)
         .requestPermission()
         .then((res: string) => {
-          if (res === 'granted') {
-            window.addEventListener(
-              'deviceorientation',
-              onOrientation,
-              true
-            );
-          } else {
-            setError('تم رفض إذن البوصلة');
-          }
+          if (res === "granted") {
+            window.addEventListener("deviceorientation", handleOrientation, true);
+          } else setError("تم رفض الوصول للبوصلة");
         })
-        .catch(() => setError('فشل الوصول للبوصلة'));
+        .catch(() => setError("فشل الوصول للبوصلة"));
     } else {
-      window.addEventListener('deviceorientation', onOrientation, true);
+      window.addEventListener("deviceorientation", handleOrientation, true);
     }
 
     return () => {
-      window.removeEventListener('deviceorientation', onOrientation);
+      window.removeEventListener("deviceorientation", handleOrientation);
     };
   }, []);
 
-  if (error)
-    return (
-      <p className="text-center mt-10 text-red-500">{error}</p>
-    );
-
-  if (qiblaAngle === null || heading === null)
-    return (
-      <p className="text-center mt-10">
-        جاري تحديد اتجاه القبلة...
-      </p>
-    );
+  if (error) return <p className="text-red-500 text-center mt-10">{error}</p>;
+  if (qiblaAngle === null) return <p className="text-center mt-10">جاري تحديد اتجاه القبلة...</p>;
 
   /* =========================
-     الزاوية الصحيحة بدون أي correction
+     تصحيح بسيط جدًا (2°) بسبب المجال المغناطيسي
      ========================= */
-  const arrowAngle = (qiblaAngle - heading + 360) % 360;
+  const magneticCorrection = -2;
+
+  const arrowAngle =
+    (qiblaAngle - deviceAngle + magneticCorrection + 360) % 360;
 
   return (
-    <div className="flex flex-col items-center justify-center h-screen bg-gray-100 dark:bg-black">
-      <p className="mb-3 text-lg font-semibold">
+    <div className="flex flex-col items-center justify-center h-screen bg-gray-100 dark:bg-black px-4">
+      <p className="mb-4 text-lg font-semibold text-gray-800 dark:text-gray-200">
         اتجاه القبلة
       </p>
 
-      <div className="relative w-56 h-56 rounded-full bg-gray-800 dark:bg-gray-900">
-        {/* السهم (مركزه الكعبة ويلامس محيط الدائرة) */}
+      {/* البوصلة */}
+      <div className="relative w-48 h-48 rounded-full bg-gray-800 dark:bg-gray-900">
+        {/* السهم (مركزه منتصف الدائرة) */}
         <div
-          className="absolute left-1/2 top-1/2 w-[2px] h-[110px] bg-yellow-400 origin-bottom transition-transform duration-100"
+          className="absolute left-1/2 top-1/2 w-[3px] h-[96px] bg-yellow-400 origin-bottom transition-transform duration-100"
           style={{
             transform: `translateX(-50%) rotate(${arrowAngle}deg)`
           }}
         />
 
-        {/* رأس السهم */}
+        {/* رأس السهم (فوق) */}
         <div
-          className="absolute left-1/2 top-[calc(50%-110px)] w-0 h-0
+          className="absolute left-1/2 top-[calc(50%-96px)] w-0 h-0
                      border-l-[7px] border-l-transparent
                      border-r-[7px] border-r-transparent
                      border-b-[14px] border-b-yellow-400"
@@ -146,8 +133,9 @@ export default function QiblaPage() {
         </span>
       </div>
 
-      <p className="mt-4 text-sm text-gray-600 dark:text-gray-300 text-center max-w-xs">
-        حرّك الهاتف على شكل رقم 8 لمعايرة البوصلة
+      <p className="mt-4 text-gray-700 dark:text-gray-300 text-sm max-w-sm text-center">
+        ⚠️ اتجاه القبلة يعتمد على البوصلة وقد يتأثر بالمجال المغناطيسي للأرض.
+        يُفضل معايرة الهاتف بتحريكه على شكل رقم 8.
       </p>
     </div>
   );
