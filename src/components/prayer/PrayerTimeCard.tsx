@@ -132,9 +132,9 @@
 //   );
 // }
 
-"use client";
+'use client';
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sunrise, Sunset } from "lucide-react";
 import { DatePicker } from "./DatePicker";
@@ -151,14 +151,23 @@ export function formatTo12Hour(time24: string) {
 
 interface PrayerTimesCardProps {
   initialData: Data;
+  selectedDate?: Date;
   onDateChange: (date: Date) => void;
 }
 
 export default function PrayerTimesCard({
   initialData,
+  selectedDate,
   onDateChange,
 }: PrayerTimesCardProps) {
   const [prayerData, setPrayerData] = useState<Data>(initialData);
+
+  // تحديث البيانات عند تغيير التاريخ من parent
+  useEffect(() => {
+    if (selectedDate) {
+      onDateChange(selectedDate);
+    }
+  }, [selectedDate, onDateChange]);
 
   const prayers = [
     { name: "الفجر", time: formatTo12Hour(prayerData.timings.Fajr) },
@@ -181,37 +190,32 @@ export default function PrayerTimesCard({
 
         <div className="flex justify-center mt-2">
           <DatePicker
+            selected={selectedDate}
             onSelectDate={(date) => {
-              onDateChange(date);
+              onDateChange(date);  // fetch البيانات الجديدة
             }}
           />
         </div>
       </CardHeader>
 
       <CardContent className="space-y-6">
-        {/* الشروق والغروب */}
         <div className="flex justify-between gap-4">
           <div className="flex items-center gap-2 bg-white/10 rounded-xl px-4 py-2 w-full">
             <Sunrise className="text-yellow-300" />
             <div>
               <p className="text-xs text-white/60">الشروق</p>
-              <p className="font-semibold">
-                {formatTo12Hour(prayerData.timings.Sunrise)}
-              </p>
+              <p className="font-semibold">{formatTo12Hour(prayerData.timings.Sunrise)}</p>
             </div>
           </div>
           <div className="flex items-center gap-2 bg-white/10 rounded-xl px-4 py-2 w-full">
             <Sunset className="text-orange-300" />
             <div>
               <p className="text-xs text-white/60">الغروب</p>
-              <p className="font-semibold">
-                {formatTo12Hour(prayerData.timings.Sunset)}
-              </p>
+              <p className="font-semibold">{formatTo12Hour(prayerData.timings.Sunset)}</p>
             </div>
           </div>
         </div>
 
-        {/* أوقات الصلاة */}
         <div className="space-y-3">
           {prayers.map((prayer) => (
             <div

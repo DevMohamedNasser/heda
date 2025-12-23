@@ -17,10 +17,14 @@
 
 
 
-// fetch مباشر من aladhan API
+// دالة fetch من aladhan API
 import { PrayTimesInterface } from "@/src/interfaces/prayTimes.interface";
 
-export async function getPrayTimes(latitude: number, longitude: number, date: string): Promise<PrayTimesInterface> {
+export async function getPrayTimes(
+  latitude: number,
+  longitude: number,
+  date: string // "DD-MM-YYYY"
+): Promise<PrayTimesInterface> {
   const res = await fetch(
     `https://api.aladhan.com/v1/timings/${date}?latitude=${latitude}&longitude=${longitude}&method=5`
   );

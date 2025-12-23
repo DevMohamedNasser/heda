@@ -1,15 +1,14 @@
-// src/app/api/prayer-times/route.ts
 import { NextResponse } from "next/server";
 import { getPrayTimes } from "@/app/_actions/prayTimes.api";
 
-// cache لمدة يومين (172800 ثانية)
+// Cache لمدة يومين (172800 ثانية)
 const cache = new Map<string, { data: any; expiry: number }>();
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const lat = searchParams.get("lat");
   const lon = searchParams.get("lon");
-  const date = searchParams.get("date"); // "DD-MM-YYYY"
+  const date = searchParams.get("date"); // "YYYY-MM-DD"
 
   if (!lat || !lon || !date) {
     return NextResponse.json({ error: "lat, lon, date required" }, { status: 400 });
