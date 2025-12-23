@@ -4,15 +4,17 @@ import { useEffect, useRef, useState } from "react";
 
 export default function QiblaPage() {
   const [qiblaAngle, setQiblaAngle] = useState<number | null>(null);
-  const [deviceAngle, setDeviceAngle] = useState<number>(0);
+  const [deviceHeading, setDeviceHeading] = useState<number | null>(null);
+  const [deviceCorrection, setDeviceCorrection] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
 
-  const lastAngleRef = useRef(0);
+  const lastHeadingRef = useRef(0);
   const smoothFactor = 0.15;
+  const initialHeadingRef = useRef<number | null>(null);
 
-  /* =========================
-     حساب زاوية القبلة (Bearing)
-     ========================= */
+  // =========================
+  // حساب زاوية القبلة (Great Circle Bearing)
+  // =========================
   function getQiblaAngle(lat: number, lng: number) {
     const kaabaLat = 21.4225 * Math.PI / 180;
     const kaabaLng = 39.8262 * Math.PI / 180;
@@ -27,9 +29,9 @@ export default function QiblaPage() {
     return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
   }
 
-  /* =========================
-     جلب الموقع (بدون تحذير React)
-     ========================= */
+  // =========================
+  // جلب الموقع
+  // =========================
   useEffect(() => {
     const getLocation = () => {
       if (!navigator.geolocation) {
@@ -44,54 +46,52 @@ export default function QiblaPage() {
           const { latitude, longitude } = pos.coords;
           setQiblaAngle(getQiblaAngle(latitude, longitude));
         },
-        () => {
-          setTimeout(() => {
-            setError("فشل تحديد الموقع");
-          }, 0);
-        }
+        () => setTimeout(() => setError("فشل تحديد الموقع"), 0)
       );
     };
 
     getLocation();
   }, []);
 
-  /* =========================
-     قراءة البوصلة
-     ========================= */
+  // =========================
+  // قراءة البوصلة + معايرة تلقائية
+  // =========================
   useEffect(() => {
     const handleOrientation = (e: DeviceOrientationEvent) => {
       let heading: number | null = null;
 
-      // iOS (الأدق)
+      // iOS accurate
       if (typeof (e as any).webkitCompassHeading === "number") {
         heading = (e as any).webkitCompassHeading;
-      }
-      // fallback (Android / Desktop)
-      else if (typeof e.alpha === "number") {
-        heading = e.alpha;
+      } else if (typeof e.alpha === "number") {
+        heading = 360 - e.alpha; // Android / fallback
       }
 
       if (heading !== null) {
+        // Low-pass filter
         const smooth =
-          lastAngleRef.current +
-          (heading - lastAngleRef.current) * smoothFactor;
+          lastHeadingRef.current +
+          (heading - lastHeadingRef.current) * smoothFactor;
 
-        lastAngleRef.current = smooth;
-        setDeviceAngle(smooth);
+        lastHeadingRef.current = smooth;
+        setDeviceHeading(smooth);
+
+        // ضبط التصحيح الديناميكي عند أول قراءة
+        if (initialHeadingRef.current === null && qiblaAngle !== null) {
+          const correction = qiblaAngle - smooth;
+          setDeviceCorrection(correction);
+          initialHeadingRef.current = smooth;
+        }
       }
     };
 
     const requestPermission = async () => {
-      if (
-        typeof (DeviceOrientationEvent as any).requestPermission === "function"
-      ) {
+      if (typeof (DeviceOrientationEvent as any).requestPermission === "function") {
         try {
           const res = await (DeviceOrientationEvent as any).requestPermission();
           if (res === "granted") {
             window.addEventListener("deviceorientation", handleOrientation, true);
-          } else {
-            setError("تم رفض الوصول للبوصلة");
-          }
+          } else setError("تم رفض الوصول للبوصلة");
         } catch {
           setError("فشل الوصول للبوصلة");
         }
@@ -105,57 +105,41 @@ export default function QiblaPage() {
     return () => {
       window.removeEventListener("deviceorientation", handleOrientation);
     };
-  }, []);
+  }, [qiblaAngle]);
 
-  if (error) {
-    return (
-      <p className="text-red-500 text-center mt-10">{error}</p>
-    );
-  }
+  if (error) return <p className="text-red-500 text-center mt-10">{error}</p>;
+  if (qiblaAngle === null || deviceHeading === null)
+    return <p className="text-center mt-10">جاري تحديد اتجاه القبلة...</p>;
 
-  if (qiblaAngle === null) {
-    return (
-      <p className="text-center mt-10">جاري تحديد اتجاه القبلة...</p>
-    );
-  }
-
-  /* =========================
-     الزاوية النهائية (صح حسابيًا)
-     ========================= */
-  const magneticCorrection = 2; // ميل بسيط مع عقارب الساعة
-  const arrowAngle =
-    (qiblaAngle - deviceAngle + magneticCorrection + 360) % 360;
+  // =========================
+  // الزاوية النهائية للسهم
+  // =========================
+  const arrowAngle = (qiblaAngle - deviceHeading + deviceCorrection + 360) % 360;
 
   return (
     <div className="flex flex-col items-center justify-center h-screen bg-gray-100 dark:bg-black px-4">
-      <p className="mb-4 text-lg font-semibold text-gray-800 dark:text-gray-200">
-        اتجاه القبلة
+      <p className="mb-2 text-lg font-semibold text-gray-800 dark:text-gray-200">
+        اتجاه القبلة: {arrowAngle.toFixed(1)}°
       </p>
 
-      {/* البوصلة */}
       <div className="relative w-48 h-48 rounded-full bg-gray-800 dark:bg-gray-900">
-        {/* الخط – بدايته ثابتة في المركز */}
+        {/* الخط – البداية ثابتة من مركز الدائرة */}
         <div
           className="absolute left-1/2 top-1/2 w-[3px] h-[82px] bg-yellow-400 origin-top transition-transform duration-100"
-          style={{
-            transform: `translateX(-50%) rotate(${arrowAngle}deg)`
-          }}
+          style={{ transform: `translateX(-50%) rotate(${arrowAngle}deg)` }}
         />
 
-        {/* رأس السهم – فوق ويلامس المحيط */}
+        {/* رأس السهم فوق */}
         <div
           className="absolute left-1/2 top-[calc(50%-82px)] w-0 h-0
                      border-l-[7px] border-l-transparent
                      border-r-[7px] border-r-transparent
                      border-b-[14px] border-b-yellow-400"
-          style={{
-            transform: `translateX(-50%) rotate(${arrowAngle}deg)`
-          }}
+          style={{ transform: `translateX(-50%) rotate(${arrowAngle}deg)` }}
         />
 
         {/* الكعبة */}
-        <span className="absolute left-1/2 top-1/2 
-          -translate-x-1/2 -translate-y-1/2 text-3xl">
+        <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-3xl">
           🕋
         </span>
       </div>
