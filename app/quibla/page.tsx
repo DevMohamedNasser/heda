@@ -5,17 +5,13 @@ import { useEffect, useRef, useState } from "react";
 export default function QiblaPage() {
   const [qiblaAngle, setQiblaAngle] = useState<number | null>(null);
   const [deviceHeading, setDeviceHeading] = useState<number | null>(null);
-  const [deviceCorrection, setDeviceCorrection] = useState<number>(0);
+  const [deviceCorrection, setDeviceCorrection] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const lastHeadingRef = useRef(0);
-  const initialHeadingRef = useRef<number | null>(null);
   const headingBuffer = useRef<number[]>([]);
   const smoothFactor = 0.05;
 
-  // =========================
-  // حساب زاوية القبلة
-  // =========================
   function getQiblaAngle(lat: number, lng: number) {
     const kaabaLat = 21.4225 * Math.PI / 180;
     const kaabaLng = 39.8262 * Math.PI / 180;
@@ -30,9 +26,6 @@ export default function QiblaPage() {
     return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
   }
 
-  // =========================
-  // جلب الموقع
-  // =========================
   useEffect(() => {
     if (!navigator.geolocation) {
       setTimeout(() => setError("المتصفح لا يدعم تحديد الموقع"), 0);
@@ -48,9 +41,6 @@ export default function QiblaPage() {
     );
   }, []);
 
-  // =========================
-  // smoothing مع التفاف الزوايا
-  // =========================
   function smoothHeading(prev: number, next: number, factor: number) {
     let diff = next - prev;
     if (diff > 180) diff -= 360;
@@ -58,9 +48,6 @@ export default function QiblaPage() {
     return prev + diff * factor;
   }
 
-  // =========================
-  // قراءة البوصلة + معالجة أول قراءات + تخزين التصحيح
-  // =========================
   useEffect(() => {
     const savedCorrection = localStorage.getItem("qiblaCorrection");
     if (savedCorrection) setDeviceCorrection(parseFloat(savedCorrection));
@@ -68,34 +55,28 @@ export default function QiblaPage() {
     const handleOrientation = (e: DeviceOrientationEvent) => {
       let heading: number | null = null;
 
-      // iOS
       if (typeof (e as any).webkitCompassHeading === "number") {
         heading = (e as any).webkitCompassHeading;
-      } 
-      // Android / fallback
-      else if (typeof e.alpha === "number") {
+      } else if (typeof e.alpha === "number") {
         heading = (360 - e.alpha) % 360;
       }
 
       if (heading !== null) {
-        // buffer أول 5 قراءات للتثبيت
-        if (headingBuffer.current.length < 5) {
+        // Buffer أول 5 قراءات للتثبيت
+        if (!deviceCorrection && headingBuffer.current.length < 5) {
           headingBuffer.current.push(heading);
-        } else if (initialHeadingRef.current === null && qiblaAngle !== null) {
-          const avgHeading =
-            headingBuffer.current.reduce((a, b) => a + b, 0) /
-            headingBuffer.current.length;
-
-          // تخزين التصحيح في localStorage لضمان ثباته بعد كل refresh
-          if (!savedCorrection) {
-            const correction = qiblaAngle - avgHeading;
-            setDeviceCorrection(correction);
-            localStorage.setItem("qiblaCorrection", correction.toString());
-          }
-
-          initialHeadingRef.current = avgHeading;
+          return;
         }
 
+        // إذا التصحيح مش متخزن
+        if (!deviceCorrection && qiblaAngle !== null && headingBuffer.current.length === 5) {
+          const avgHeading = headingBuffer.current.reduce((a, b) => a + b, 0) / headingBuffer.current.length;
+          const correction = qiblaAngle - avgHeading;
+          setDeviceCorrection(correction);
+          localStorage.setItem("qiblaCorrection", correction.toString());
+        }
+
+        // smoothing
         const smooth = smoothHeading(lastHeadingRef.current, heading, smoothFactor);
         lastHeadingRef.current = smooth;
         setDeviceHeading(smooth);
@@ -119,13 +100,11 @@ export default function QiblaPage() {
 
     requestPermission();
 
-    return () => {
-      window.removeEventListener("deviceorientation", handleOrientation);
-    };
-  }, [qiblaAngle]);
+    return () => window.removeEventListener("deviceorientation", handleOrientation);
+  }, [qiblaAngle, deviceCorrection]);
 
   if (error) return <p className="text-red-500 text-center mt-10">{error}</p>;
-  if (qiblaAngle === null || deviceHeading === null)
+  if (qiblaAngle === null || deviceHeading === null || deviceCorrection === null)
     return <p className="text-center mt-10">جاري تحديد اتجاه القبلة...</p>;
 
   const arrowAngle = (qiblaAngle - deviceHeading + deviceCorrection + 360) % 360;
@@ -135,15 +114,11 @@ export default function QiblaPage() {
       <p className="mb-2 text-lg font-semibold text-gray-800 dark:text-gray-200">
         زاوية القبلة: {arrowAngle.toFixed(1)}°
       </p>
-
       <div className="relative w-48 h-48 rounded-full bg-gray-800 dark:bg-gray-900">
-        {/* الخط – البداية ثابتة من مركز الدائرة */}
         <div
           className="absolute left-1/2 top-1/2 w-[3px] h-[82px] bg-yellow-400 origin-top transition-transform duration-100"
           style={{ transform: `translateX(-50%) rotate(${arrowAngle}deg)` }}
         />
-
-        {/* رأس السهم فوق */}
         <div
           className="absolute left-1/2 top-[calc(50%-82px)] w-0 h-0
                      border-l-[7px] border-l-transparent
@@ -151,14 +126,11 @@ export default function QiblaPage() {
                      border-b-[14px] border-b-yellow-400"
           style={{ transform: `translateX(-50%) rotate(${arrowAngle}deg)` }}
         />
-
-        {/* الكعبة */}
         <span className="absolute left-1/2 top-1/2
           -translate-x-1/2 -translate-y-1/2 text-3xl">
           🕋
         </span>
       </div>
-
       <p className="mt-4 text-gray-700 dark:text-gray-300 text-sm max-w-sm text-center">
         ⚠️ اتجاه القبلة يعتمد على البوصلة وقد يتأثر بالمجال المغناطيسي للأرض.
         يُفضل معايرة الهاتف بتحريكه على شكل رقم 8.
