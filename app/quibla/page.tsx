@@ -10,10 +10,11 @@ export default function QiblaPage() {
 
   const lastHeadingRef = useRef(0);
   const initialHeadingRef = useRef<number | null>(null);
-  const smoothFactor = 0.05; // smoothing أعلى لتثبيت السهم
+  const headingBuffer = useRef<number[]>([]); // لتخزين أول عدة قراءات
+  const smoothFactor = 0.05; // smoothing لتقليل الاهتزاز
 
   // =========================
-  // حساب زاوية القبلة (Bearing)
+  // حساب زاوية القبلة
   // =========================
   function getQiblaAngle(lat: number, lng: number) {
     const kaabaLat = 21.4225 * Math.PI / 180;
@@ -33,22 +34,18 @@ export default function QiblaPage() {
   // جلب الموقع
   // =========================
   useEffect(() => {
-    const getLocation = () => {
-      if (!navigator.geolocation) {
-        setTimeout(() => setError("المتصفح لا يدعم تحديد الموقع"), 0);
-        return;
-      }
+    if (!navigator.geolocation) {
+      setTimeout(() => setError("المتصفح لا يدعم تحديد الموقع"), 0);
+      return;
+    }
 
-      navigator.geolocation.getCurrentPosition(
-        pos => {
-          const { latitude, longitude } = pos.coords;
-          setQiblaAngle(getQiblaAngle(latitude, longitude));
-        },
-        () => setTimeout(() => setError("فشل تحديد الموقع"), 0)
-      );
-    };
-
-    getLocation();
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        const { latitude, longitude } = pos.coords;
+        setQiblaAngle(getQiblaAngle(latitude, longitude));
+      },
+      () => setTimeout(() => setError("فشل تحديد الموقع"), 0)
+    );
   }, []);
 
   // =========================
@@ -62,7 +59,7 @@ export default function QiblaPage() {
   }
 
   // =========================
-  // قراءة البوصلة + معايرة + حفظ التصحيح
+  // قراءة البوصلة + معالجة أول قراءات Android
   // =========================
   useEffect(() => {
     const savedCorrection = localStorage.getItem("qiblaCorrection");
@@ -78,19 +75,22 @@ export default function QiblaPage() {
       }
 
       if (heading !== null) {
+        // إضافة أول 5 قراءات للمعايرة
+        if (headingBuffer.current.length < 5) {
+          headingBuffer.current.push(heading);
+        } else if (initialHeadingRef.current === null && qiblaAngle !== null) {
+          const avgHeading =
+            headingBuffer.current.reduce((a, b) => a + b, 0) /
+            headingBuffer.current.length;
+          const correction = qiblaAngle - avgHeading;
+          setDeviceCorrection(correction);
+          localStorage.setItem("qiblaCorrection", correction.toString());
+          initialHeadingRef.current = avgHeading;
+        }
+
         const smooth = smoothHeading(lastHeadingRef.current, heading, smoothFactor);
         lastHeadingRef.current = smooth;
         setDeviceHeading(smooth);
-
-        // ضبط التصحيح عند أول قراءة
-        if (initialHeadingRef.current === null && qiblaAngle !== null) {
-          if (!savedCorrection) {
-            const correction = qiblaAngle - smooth;
-            setDeviceCorrection(correction);
-            localStorage.setItem("qiblaCorrection", correction.toString());
-          }
-          initialHeadingRef.current = smooth;
-        }
       }
     };
 
