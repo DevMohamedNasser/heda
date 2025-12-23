@@ -13,7 +13,7 @@ export default function QiblaPage() {
   const smoothFactor = 0.05; // smoothing أعلى لتثبيت السهم
 
   // =========================
-  // حساب زاوية القبلة
+  // حساب زاوية القبلة (Bearing)
   // =========================
   function getQiblaAngle(lat: number, lng: number) {
     const kaabaLat = 21.4225 * Math.PI / 180;
@@ -35,9 +35,7 @@ export default function QiblaPage() {
   useEffect(() => {
     const getLocation = () => {
       if (!navigator.geolocation) {
-        setTimeout(() => {
-          setError("المتصفح لا يدعم تحديد الموقع");
-        }, 0);
+        setTimeout(() => setError("المتصفح لا يدعم تحديد الموقع"), 0);
         return;
       }
 
@@ -54,10 +52,19 @@ export default function QiblaPage() {
   }, []);
 
   // =========================
-  // قراءة البوصلة + معايرة تلقائية + حفظ التصحيح
+  // smoothing مع التعامل مع التفاف الزوايا
+  // =========================
+  function smoothHeading(prev: number, next: number, factor: number) {
+    let diff = next - prev;
+    if (diff > 180) diff -= 360;
+    if (diff < -180) diff += 360;
+    return prev + diff * factor;
+  }
+
+  // =========================
+  // قراءة البوصلة + معايرة + حفظ التصحيح
   // =========================
   useEffect(() => {
-    // استرجاع التصحيح من localStorage
     const savedCorrection = localStorage.getItem("qiblaCorrection");
     if (savedCorrection) setDeviceCorrection(parseFloat(savedCorrection));
 
@@ -67,18 +74,15 @@ export default function QiblaPage() {
       if (typeof (e as any).webkitCompassHeading === "number") {
         heading = (e as any).webkitCompassHeading;
       } else if (typeof e.alpha === "number") {
-        heading = 360 - e.alpha; // fallback Android
+        heading = 360 - e.alpha; // Android / fallback
       }
 
       if (heading !== null) {
-        const smooth =
-          lastHeadingRef.current +
-          (heading - lastHeadingRef.current) * smoothFactor;
-
+        const smooth = smoothHeading(lastHeadingRef.current, heading, smoothFactor);
         lastHeadingRef.current = smooth;
         setDeviceHeading(smooth);
 
-        // ضبط التصحيح عند أول قراءة إذا لم يكن محفوظًا
+        // ضبط التصحيح عند أول قراءة
         if (initialHeadingRef.current === null && qiblaAngle !== null) {
           if (!savedCorrection) {
             const correction = qiblaAngle - smooth;
@@ -116,9 +120,6 @@ export default function QiblaPage() {
   if (qiblaAngle === null || deviceHeading === null)
     return <p className="text-center mt-10">جاري تحديد اتجاه القبلة...</p>;
 
-  // =========================
-  // حساب الزاوية النهائية للسهم
-  // =========================
   const arrowAngle = (qiblaAngle - deviceHeading + deviceCorrection + 360) % 360;
 
   return (
@@ -150,9 +151,9 @@ export default function QiblaPage() {
         </span>
       </div>
 
-      <p className="mt-4 text-gray-700 dark:text-gray-300 text-sm text-center max-w-sm">
+      <p className="mt-4 text-gray-700 dark:text-gray-300 text-sm max-w-sm text-center">
         ⚠️ اتجاه القبلة يعتمد على البوصلة وقد يتأثر بالمجال المغناطيسي للأرض.
-        يُفضل معايرة الهاتف بتحريكه على شكل رقم ٥.
+        يُفضل معايرة الهاتف بتحريكه على شكل رقم 8.
       </p>
     </div>
   );
