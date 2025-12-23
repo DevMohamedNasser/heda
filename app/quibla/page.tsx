@@ -1,16 +1,18 @@
 'use client';
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useRef, useState } from 'react';
 
 export default function QiblaPage() {
   const [qiblaAngle, setQiblaAngle] = useState<number | null>(null);
-  const [deviceAngle, setDeviceAngle] = useState<number>(0);
+  const [heading, setHeading] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const lastAlphaRef = useRef<number>(0); 
-  const alphaFilter = 0.1; 
+  const lastHeading = useRef(0);
+  const smoothFactor = 0.15;
 
-  // حساب زاوية القبلة
+  /* =========================
+     حساب زاوية القبلة (صحيح 100%)
+     ========================= */
   function getQiblaAngle(lat: number, lng: number) {
     const kaabaLat = 21.4225 * Math.PI / 180;
     const kaabaLng = 39.8262 * Math.PI / 180;
@@ -25,10 +27,12 @@ export default function QiblaPage() {
     return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
   }
 
-  // جلب الموقع
+  /* =========================
+     تحديد الموقع
+     ========================= */
   useEffect(() => {
     if (!navigator.geolocation) {
-      setTimeout(() => setError("المتصفح لا يدعم تحديد الموقع"), 0);
+      setError('المتصفح لا يدعم تحديد الموقع');
       return;
     }
 
@@ -37,76 +41,113 @@ export default function QiblaPage() {
         const { latitude, longitude } = pos.coords;
         setQiblaAngle(getQiblaAngle(latitude, longitude));
       },
-      () => setTimeout(() => setError("فشل تحديد الموقع"), 0)
+      () => setError('فشل تحديد الموقع')
     );
   }, []);
 
-  // متابعة حركة الجهاز
+  /* =========================
+     قراءة البوصلة (حل جذري)
+     ========================= */
   useEffect(() => {
-    const handleOrientation = (e: DeviceOrientationEvent) => {
-      let alpha = e.alpha ?? 0;
-      const webkitHeading = (e as any).webkitCompassHeading;
-      if (typeof webkitHeading === "number") alpha = webkitHeading;
+    function onOrientation(e: DeviceOrientationEvent) {
+      let angle: number | null = null;
 
-      // Low-pass filter
-      alpha = lastAlphaRef.current + (alpha - lastAlphaRef.current) * alphaFilter;
-      lastAlphaRef.current = alpha;
+      // أدق حل (iOS)
+      if (typeof (e as any).webkitCompassHeading === 'number') {
+        angle = (e as any).webkitCompassHeading;
+      }
+      // fallback
+      else if (typeof e.alpha === 'number') {
+        angle = 360 - e.alpha;
+      }
 
-      requestAnimationFrame(() => setDeviceAngle(alpha));
-    };
+      if (angle !== null) {
+        const smooth =
+          lastHeading.current +
+          (angle - lastHeading.current) * smoothFactor;
 
-    if (typeof (DeviceOrientationEvent as any).requestPermission === "function") {
+        lastHeading.current = smooth;
+        setHeading(smooth);
+      }
+    }
+
+    if (
+      typeof (DeviceOrientationEvent as any).requestPermission === 'function'
+    ) {
       (DeviceOrientationEvent as any)
         .requestPermission()
-        .then((permissionState: "granted" | "denied") => {
-          if (permissionState === "granted") {
-            window.addEventListener("deviceorientationabsolute", handleOrientation, true);
-          } else setTimeout(() => setError("تم رفض الوصول للبوصلة"), 0);
+        .then((res: string) => {
+          if (res === 'granted') {
+            window.addEventListener(
+              'deviceorientation',
+              onOrientation,
+              true
+            );
+          } else {
+            setError('تم رفض إذن البوصلة');
+          }
         })
-        .catch(() => setTimeout(() => setError("فشل الوصول للبوصلة"), 0));
+        .catch(() => setError('فشل الوصول للبوصلة'));
     } else {
-      window.addEventListener("deviceorientationabsolute", handleOrientation, true);
+      window.addEventListener('deviceorientation', onOrientation, true);
     }
 
     return () => {
-      window.removeEventListener("deviceorientationabsolute", handleOrientation);
+      window.removeEventListener('deviceorientation', onOrientation);
     };
   }, []);
 
-  if (error) return <p className="text-red-500 text-center mt-10">{error}</p>;
-  if (qiblaAngle === null) return <p className="text-center mt-10">جاري تحديد اتجاه القبلة...</p>;
+  if (error)
+    return (
+      <p className="text-center mt-10 text-red-500">{error}</p>
+    );
 
-  // إضافة تصحيح بسيط عكس عقارب الساعة
-  const correction = -10; 
-  const arrowAngle = (qiblaAngle - deviceAngle + correction + 360) % 360;
+  if (qiblaAngle === null || heading === null)
+    return (
+      <p className="text-center mt-10">
+        جاري تحديد اتجاه القبلة...
+      </p>
+    );
+
+  /* =========================
+     الزاوية الصحيحة بدون أي correction
+     ========================= */
+  const arrowAngle = (qiblaAngle - heading + 360) % 360;
 
   return (
-    <div className="flex flex-col items-center justify-center h-screen bg-gray-100 dark:bg-black px-4">
-      <p className="mb-4 text-lg font-semibold text-gray-800 dark:text-gray-200">
-        زاوية القبلة: {arrowAngle.toFixed(1)}°
+    <div className="flex flex-col items-center justify-center h-screen bg-gray-100 dark:bg-black">
+      <p className="mb-3 text-lg font-semibold">
+        اتجاه القبلة
       </p>
 
-      {/* البوصلة */}
-      <div className="relative w-48 h-48 rounded-full bg-gray-800 dark:bg-gray-900 flex items-center justify-center">
-        {/* جسم السهم */}
+      <div className="relative w-56 h-56 rounded-full bg-gray-800 dark:bg-gray-900">
+        {/* السهم (مركزه الكعبة ويلامس محيط الدائرة) */}
         <div
-          className="absolute top-1/2 left-1/2 w-1 h-24 bg-white dark:bg-yellow-400 origin-bottom transition-transform duration-100 ease-out"
-          style={{ transform: `translateX(-50%) rotate(${arrowAngle}deg)` }}
+          className="absolute left-1/2 top-1/2 w-[2px] h-[110px] bg-yellow-400 origin-bottom transition-transform duration-100"
+          style={{
+            transform: `translateX(-50%) rotate(${arrowAngle}deg)`
+          }}
         />
-        {/* رأس السهم فوق الدائرة */}
+
+        {/* رأس السهم */}
         <div
-          className="absolute left-1/2 top-[calc(50%-96px)] w-0 h-0 
-                     border-l-[6px] border-l-transparent 
-                     border-r-[6px] border-r-transparent 
-                     border-t-12 border-t-white dark:border-t-yellow-400"
-          style={{ transform: `translateX(-50%) rotate(${arrowAngle}deg)` }}
+          className="absolute left-1/2 top-[calc(50%-110px)] w-0 h-0
+                     border-l-[7px] border-l-transparent
+                     border-r-[7px] border-r-transparent
+                     border-b-[14px] border-b-yellow-400"
+          style={{
+            transform: `translateX(-50%) rotate(${arrowAngle}deg)`
+          }}
         />
+
         {/* الكعبة */}
-        <span className="absolute text-3xl">🕋</span>
+        <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-3xl">
+          🕋
+        </span>
       </div>
 
-      <p className="mt-4 text-gray-700 dark:text-gray-300 text-sm max-w-sm text-center">
-        حرك جهازك لتوجيه السهم نحو القبلة. السهم يتحرك بسلاسة مع معايرة تلقائية.
+      <p className="mt-4 text-sm text-gray-600 dark:text-gray-300 text-center max-w-xs">
+        حرّك الهاتف على شكل رقم 8 لمعايرة البوصلة
       </p>
     </div>
   );
