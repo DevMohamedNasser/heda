@@ -9,8 +9,8 @@ export default function QiblaPage() {
 
   const lastHeadingRef = useRef(0);
   const headingBuffer = useRef<number[]>([]);
-  const smoothFactor = 0.15; // smoothing أسرع وأكثر سلاسة
-  const stableThreshold = 3; // الفرق المسموح لتثبيت السهم أول مرة
+  const smoothFactor = 0.15;
+  const stableThreshold = 3;
 
   function getQiblaAngle(lat: number, lng: number) {
     const kaabaLat = 21.4225 * Math.PI / 180;
@@ -62,19 +62,16 @@ export default function QiblaPage() {
 
       if (heading === null) return;
 
-      // buffer ديناميكي آخر 10 قراءات
-      headingBuffer.current.push(heading);
-      if (headingBuffer.current.length > 10) headingBuffer.current.shift();
-
-      // لو السهم لسه ما اتثبتش، ننتظر ثبات buffer
-      const max = Math.max(...headingBuffer.current);
-      const min = Math.min(...headingBuffer.current);
-      if (Math.abs(max - min) < stableThreshold || lastHeadingRef.current !== 0) {
-        const avgHeading = headingBuffer.current.reduce((a, b) => a + b, 0) / headingBuffer.current.length;
-        const smooth = smoothHeading(lastHeadingRef.current, avgHeading, smoothFactor);
-        lastHeadingRef.current = smooth;
-        setDeviceHeading(smooth);
+      // buffer أول 3 قراءات لتثبيت أولي
+      if (headingBuffer.current.length < 3) {
+        headingBuffer.current.push(heading);
+        return;
       }
+
+      // smoothing لكل قراءة بعد التثبيت
+      const smooth = smoothHeading(lastHeadingRef.current, heading, smoothFactor);
+      lastHeadingRef.current = smooth;
+      setDeviceHeading(smooth);
     };
 
     const requestPermission = async () => {
@@ -126,8 +123,7 @@ export default function QiblaPage() {
         </span>
       </div>
       <p className="mt-4 text-gray-700 dark:text-gray-300 text-sm max-w-sm text-center">
-        ⚠️ اتجاه القبلة يعتمد على البوصلة وقد يتأثر بالمجال المغناطيسي للأرض.
-        يُفضل تحريك الهاتف على شكل رقم 8 للمعايرة.
+        ⚠️ اتجاه القبلة يعتمد على بوصلة الجهاز وقد يتأثر بالمجالات المغناطيسية المحيطة.  
       </p>
     </div>
   );
