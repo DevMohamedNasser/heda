@@ -1,3 +1,7 @@
+/**
+ * https://www.mp3quran.net/api/v3/reciters
+ * api to get all readers
+ */
 export const readers: {
   id: number;
   name: string;
@@ -34,6 +38,13 @@ export const readers: {
     style: "حفص عن عاصم - مرتل",
     server: "https://server6.mp3quran.net/qtm/",
   },
+  {
+    id: 21148,
+    name: "عبدالبديع غيلان",
+    style: "حفص عن عاصم - مرتل",
+    server: "https://server16.mp3quran.net/A-Ghailan/Rewayat-Hafs-A-n-Assem/",
+  },
+
   {
     id: 112,
     name: "محمد صديق المنشاوي",

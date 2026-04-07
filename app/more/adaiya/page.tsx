@@ -149,7 +149,7 @@ const ad3iya = [
 export default function AdaiyaPage() {
   return (
     <div className="px-2 py-6 pb-16">
-      <h1 className="text-3xl font-bold text-center mb-8">الأدعية الكاملة</h1>
+      <h1 className="text-3xl font-bold text-center mb-8">أدعية اليوم</h1>
 
       <Accordion
         type="single"
@@ -167,7 +167,7 @@ export default function AdaiyaPage() {
             </AccordionTrigger>
 
             <AccordionContent className="flex flex-col gap-4 px-4 py-3 bg-white">
-              <p className="text-gray-800 leading-relaxed">{zekr.text}</p>
+              <p className="text-gray-800 leading-relaxed text-lg">{zekr.text}</p>
               <div className="flex flex-wrap items-center justify-between mt-2">
                 <p className="text-gray-500 text-sm">المصدر: {zekr.source}</p>
                 <span
