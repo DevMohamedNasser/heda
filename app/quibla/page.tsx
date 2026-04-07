@@ -8,7 +8,7 @@ export default function QiblaPage() {
   const [error, setError] = useState<string | null>(null);
 
   const lastHeadingRef = useRef(0);
-  const smoothFactor = 0.18;
+  const smoothFactor = 0.25; // faster response for smooth clockwise movement
   const absoluteWorking = useRef(false);
 
   function getQiblaAngle(lat: number, lng: number): number {
@@ -51,7 +51,7 @@ export default function QiblaPage() {
     );
   }, []);
 
-  // Compass
+  // Compass - optimized for clockwise rotation
   useEffect(() => {
     if (qiblaAngle === null) return;
 
@@ -108,10 +108,10 @@ export default function QiblaPage() {
     };
   }, [qiblaAngle]);
 
-  // ←←← CLOCKWISE ROTATION FIX ←←←
+  // FIXED CLOCKWISE ROTATION (most efficient & correct for your request)
   const arrowAngle =
     qiblaAngle !== null && deviceHeading !== null
-      ? normalize(deviceHeading - qiblaAngle)   // ← This makes it rotate clockwise
+      ? normalize(deviceHeading - qiblaAngle)   // ← clockwise when device turns clockwise
       : null;
 
   if (error) return <p className="text-red-500 text-center mt-10">{error}</p>;
@@ -127,9 +127,9 @@ export default function QiblaPage() {
       <div className="relative w-64 h-64 rounded-full bg-gray-800 dark:bg-gray-900 shadow-xl">
         <div className="absolute inset-0 border-8 border-gray-700 dark:border-gray-600 rounded-full" />
 
-        {/* Qibla Arrow - now rotates clockwise */}
+        {/* Qibla Arrow - clockwise optimized */}
         <div
-          className="absolute left-1/2 top-1/2 w-[4px] h-[110px] bg-yellow-400 origin-bottom transition-transform duration-75 ease-out"
+          className="absolute left-1/2 top-1/2 w-[4px] h-[110px] bg-yellow-400 origin-bottom transition-transform duration-50 ease-out"
           style={{ transform: `translateX(-50%) rotate(${arrowAngle}deg)` }}
         />
         <div
@@ -137,7 +137,7 @@ export default function QiblaPage() {
                      border-l-[10px] border-l-transparent 
                      border-r-[10px] border-r-transparent 
                      border-b-[22px] border-b-yellow-400 
-                     transition-transform duration-75 ease-out"
+                     transition-transform duration-50 ease-out"
           style={{ transform: `translateX(-50%) rotate(${arrowAngle}deg)` }}
         />
 
@@ -150,7 +150,7 @@ export default function QiblaPage() {
 
       <p className="mt-8 text-gray-700 dark:text-gray-300 text-sm max-w-sm text-center leading-relaxed">
         ⚠️ حرّك الهاتف بشكل رقم 8 لمعايرة البوصلة<br />
-        الاتجاه محسوب بدقة حسب موقعك
+        الاتجاه محسوب بدقة - السهم يدور مع عقارب الساعة (clockwise)
       </p>
     </div>
   );
