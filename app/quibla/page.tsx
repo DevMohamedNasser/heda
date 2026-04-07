@@ -6,22 +6,20 @@ export default function QiblaPage() {
   const [qiblaAngle, setQiblaAngle] = useState<number | null>(null);
   const [deviceHeading, setDeviceHeading] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [permissionAsked, setPermissionAsked] = useState(false);
 
   const lastHeadingRef = useRef(0);
   const smoothFactor = 0.15;
+  const absoluteWorking = useRef(false);
 
   function getQiblaAngle(lat: number, lng: number) {
     const kaabaLat = 21.4225 * Math.PI / 180;
     const kaabaLng = 39.8262 * Math.PI / 180;
     const userLat = lat * Math.PI / 180;
     const userLng = lng * Math.PI / 180;
-
     const y = Math.sin(kaabaLng - userLng);
     const x =
       Math.cos(userLat) * Math.tan(kaabaLat) -
       Math.sin(userLat) * Math.cos(kaabaLng - userLng);
-
     return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
   }
 
@@ -40,8 +38,7 @@ export default function QiblaPage() {
     }
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        const { latitude, longitude } = pos.coords;
-        setQiblaAngle(getQiblaAngle(latitude, longitude));
+        setQiblaAngle(getQiblaAngle(pos.coords.latitude, pos.coords.longitude));
       },
       () => setError("فشل تحديد الموقع")
     );
@@ -51,46 +48,53 @@ export default function QiblaPage() {
   useEffect(() => {
     if (qiblaAngle === null) return;
 
+    // handler للحدث المطلق (Android الأحدث)
+    const handleAbsolute = (e: DeviceOrientationEvent) => {
+      if (e.alpha === null) return;
+      absoluteWorking.current = true;
+      const heading = (360 - e.alpha) % 360;
+      const smooth = smoothHeading(lastHeadingRef.current, heading, smoothFactor);
+      lastHeadingRef.current = smooth;
+      setDeviceHeading(smooth);
+    };
+
+    // handler للحدث العادي (iOS + Android القديم)
     const handleOrientation = (e: DeviceOrientationEvent) => {
+      // لو absolute شغال، تجاهل الحدث العادي تماماً
+      if (absoluteWorking.current) return;
+
       let heading: number | null = null;
 
       // iOS
       if (typeof (e as any).webkitCompassHeading === "number") {
         heading = (e as any).webkitCompassHeading;
       }
-      // Android - deviceorientationabsolute يعطي alpha مطلق من الشمال
-      else if (typeof e.alpha === "number") {
+      // Android قديم (alpha نسبي — مش مثالي لكن أحسن من لا شيء)
+      else if (e.alpha !== null) {
         heading = (360 - e.alpha) % 360;
       }
 
       if (heading === null) return;
-
       const smooth = smoothHeading(lastHeadingRef.current, heading, smoothFactor);
       lastHeadingRef.current = smooth;
       setDeviceHeading(smooth);
     };
 
     const startListening = () => {
-      // absolute أولاً للأندرويد، ثم العادي fallback لـ iOS
-      window.addEventListener("deviceorientationabsolute", handleOrientation as EventListener, true);
+      window.addEventListener("deviceorientationabsolute", handleAbsolute as EventListener, true);
       window.addEventListener("deviceorientation", handleOrientation, true);
     };
 
     const requestPermission = async () => {
-      // iOS يحتاج إذن صريح
       if (typeof (DeviceOrientationEvent as any).requestPermission === "function") {
         try {
           const res = await (DeviceOrientationEvent as any).requestPermission();
-          if (res === "granted") {
-            startListening();
-          } else {
-            setError("تم رفض الوصول للبوصلة");
-          }
+          if (res === "granted") startListening();
+          else setError("تم رفض الوصول للبوصلة");
         } catch {
           setError("فشل الوصول للبوصلة");
         }
       } else {
-        // Android لا يحتاج إذن
         startListening();
       }
     };
@@ -98,12 +102,11 @@ export default function QiblaPage() {
     requestPermission();
 
     return () => {
-      window.removeEventListener("deviceorientationabsolute", handleOrientation as EventListener, true);
+      window.removeEventListener("deviceorientationabsolute", handleAbsolute as EventListener, true);
       window.removeEventListener("deviceorientation", handleOrientation, true);
     };
   }, [qiblaAngle]);
 
-  // السهم = فرق زاوية القبلة عن الشمال ناقص اتجاه الجهاز الحالي
   const arrowAngle = qiblaAngle !== null && deviceHeading !== null
     ? (qiblaAngle - deviceHeading + 360) % 360
     : null;
@@ -123,12 +126,10 @@ export default function QiblaPage() {
       </p>
 
       <div className="relative w-48 h-48 rounded-full bg-gray-800 dark:bg-gray-900">
-        {/* الساق */}
         <div
           className="absolute left-1/2 top-1/2 w-[3px] h-[82px] bg-yellow-400 origin-top transition-transform duration-75"
           style={{ transform: `translateX(-50%) rotate(${arrowAngle}deg)` }}
         />
-        {/* الرأس */}
         <div
           className="absolute left-1/2 top-[calc(50%-82px)] w-0 h-0
                      border-l-[7px] border-l-transparent
