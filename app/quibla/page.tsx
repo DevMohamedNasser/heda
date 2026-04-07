@@ -5,164 +5,164 @@ import { useEffect, useRef, useState } from "react";
 export default function QiblaPage() {
   const [qiblaAngle, setQiblaAngle] = useState<number | null>(null);
   const [deviceHeading, setDeviceHeading] = useState<number | null>(null);
-  const [isCalibrating, setIsCalibrating] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const lastHeadingRef = useRef(0);
-  const smoothFactor = 0.2;
+  const smoothFactor = 0.18;
+  const absoluteWorking = useRef(false);
 
-  // ✅ حساب اتجاه القبلة
-  function getQiblaAngle(lat: number, lng: number) {
-    const kaabaLat = 21.4225 * Math.PI / 180;
-    const kaabaLng = 39.8262 * Math.PI / 180;
-
-    const userLat = lat * Math.PI / 180;
-    const userLng = lng * Math.PI / 180;
+  // Calculate Qibla direction
+  function getQiblaAngle(lat: number, lng: number): number {
+    const kaabaLat = 21.4225 * (Math.PI / 180);
+    const kaabaLng = 39.8262 * (Math.PI / 180);
+    const userLat = lat * (Math.PI / 180);
+    const userLng = lng * (Math.PI / 180);
 
     const y = Math.sin(kaabaLng - userLng);
     const x =
       Math.cos(userLat) * Math.tan(kaabaLat) -
       Math.sin(userLat) * Math.cos(kaabaLng - userLng);
 
-    return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+    const angle = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+    return angle;
   }
 
-  // ✅ smoothing
-  function smoothHeading(prev: number, next: number, factor: number) {
+  // Smooth heading
+  function smoothHeading(prev: number, next: number, factor: number): number {
     let diff = next - prev;
-
     if (diff > 180) diff -= 360;
     if (diff < -180) diff += 360;
-
     return prev + diff * factor;
   }
 
-  // ✅ GPS
+  const normalize = (angle: number) => ((angle % 360) + 360) % 360;
+
+  // ==================== GPS ====================
   useEffect(() => {
+    if (!navigator.geolocation) {
+      setError("المتصفح لا يدعم تحديد الموقع");
+      return;
+    }
+
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        const angle = getQiblaAngle(
-          pos.coords.latitude,
-          pos.coords.longitude
-        );
+        const angle = getQiblaAngle(pos.coords.latitude, pos.coords.longitude);
         setQiblaAngle(angle);
       },
-      () => setError("فشل تحديد الموقع")
+      () => setError("فشل تحديد الموقع"),
+      { enableHighAccuracy: true }
     );
   }, []);
 
-  // ✅ البوصلة (محسّنة من الكود الأول)
+  // ==================== Compass ====================
   useEffect(() => {
     if (qiblaAngle === null) return;
 
+    const handleAbsolute = (e: DeviceOrientationEvent) => {
+      if (e.alpha === null) return;
+      absoluteWorking.current = true;
+
+      let heading = (360 - e.alpha) % 360;
+      heading = normalize(heading);
+
+      const smooth = smoothHeading(lastHeadingRef.current, heading, smoothFactor);
+      lastHeadingRef.current = smooth;
+      setDeviceHeading(smooth);
+    };
+
     const handleOrientation = (e: DeviceOrientationEvent) => {
+      if (absoluteWorking.current) return;
+
       let heading: number | null = null;
 
-      if ((e as any).webkitCompassHeading !== undefined) {
+      if (typeof (e as any).webkitCompassHeading === "number") {
         heading = (e as any).webkitCompassHeading;
       } else if (e.alpha !== null) {
         heading = (360 - e.alpha) % 360;
       }
 
       if (heading === null) return;
+      heading = normalize(heading);
 
-      const smooth = smoothHeading(
-        lastHeadingRef.current,
-        heading,
-        smoothFactor
-      );
-
+      const smooth = smoothHeading(lastHeadingRef.current, heading, smoothFactor);
       lastHeadingRef.current = smooth;
       setDeviceHeading(smooth);
-      setIsCalibrating(false);
     };
 
-    const start = async () => {
-      try {
-        if (typeof (DeviceOrientationEvent as any).requestPermission === "function") {
-          const res = await (DeviceOrientationEvent as any).requestPermission();
-          if (res !== "granted") {
-            setError("تم رفض البوصلة");
-            return;
-          }
-        }
+    const startListening = () => {
+      window.addEventListener("deviceorientationabsolute", handleAbsolute as EventListener, { passive: true });
+      window.addEventListener("deviceorientation", handleOrientation, { passive: true });
+    };
 
-        window.addEventListener("deviceorientation", handleOrientation, true);
-      } catch {
-        setError("فشل تشغيل البوصلة");
+    const requestPermission = async () => {
+      if (typeof (DeviceOrientationEvent as any).requestPermission === "function") {
+        try {
+          const res = await (DeviceOrientationEvent as any).requestPermission();
+          if (res === "granted") startListening();
+          else setError("تم رفض الوصول إلى البوصلة");
+        } catch {
+          setError("فشل الوصول إلى البوصلة");
+        }
+      } else {
+        startListening();
       }
     };
 
-    start();
+    requestPermission();
 
     return () => {
-      window.removeEventListener("deviceorientation", handleOrientation, true);
+      window.removeEventListener("deviceorientationabsolute", handleAbsolute as EventListener);
+      window.removeEventListener("deviceorientation", handleOrientation);
     };
   }, [qiblaAngle]);
 
-  // ✅ نفس لوجيك الكود الأول
-  const relativeAngle =
+  // Correct arrow rotation (anti-clockwise when device turns clockwise)
+  const arrowAngle =
     qiblaAngle !== null && deviceHeading !== null
-      ? (qiblaAngle - deviceHeading + 360) % 360
+      ? normalize(qiblaAngle - deviceHeading)
       : null;
-
-  // ✅ هل أنت في الاتجاه الصح
-  const isAligned =
-    relativeAngle !== null &&
-    (Math.abs(relativeAngle) <= 15 || Math.abs(relativeAngle - 360) <= 15);
 
   if (error) {
     return <p className="text-red-500 text-center mt-10">{error}</p>;
   }
 
-  if (relativeAngle === null) {
+  if (arrowAngle === null) {
     return <p className="text-center mt-10">جاري تحديد اتجاه القبلة...</p>;
   }
 
   return (
     <div className="flex flex-col items-center justify-center h-screen bg-gray-100 dark:bg-black px-4">
-
-      {/* الحالة */}
-      {isCalibrating && (
-        <p className="text-orange-500 mb-2">جاري معايرة البوصلة...</p>
-      )}
-
-      {isAligned && (
-        <p className="text-green-500 mb-2 font-bold">
-          ✅ أنت في اتجاه القبلة
-        </p>
-      )}
-
-      <p className="mb-2 text-lg font-semibold text-gray-800 dark:text-gray-200">
-        اتجاه القبلة: {relativeAngle.toFixed(1)}°
+      <p className="mb-4 text-lg font-semibold text-gray-800 dark:text-gray-200">
+        اتجاه القبلة: {arrowAngle.toFixed(1)}°
       </p>
 
-      {/* البوصلة */}
-      <div className="relative w-48 h-48 rounded-full bg-gray-800 shadow-lg">
+      <div className="relative w-64 h-64 rounded-full bg-gray-800 dark:bg-gray-900 shadow-xl">
+        <div className="absolute inset-0 border-8 border-gray-700 dark:border-gray-600 rounded-full" />
 
-        {/* السهم */}
+        {/* Qibla Arrow */}
         <div
-          className="absolute left-1/2 top-1/2 w-[3px] h-[82px] bg-yellow-400 origin-top transition-transform duration-75"
-          style={{ transform: `translateX(-50%) rotate(${relativeAngle}deg)` }}
+          className="absolute left-1/2 top-1/2 w-[4px] h-[110px] bg-yellow-400 origin-bottom transition-transform duration-100 ease-out"
+          style={{ transform: `translateX(-50%) rotate(${arrowAngle}deg)` }}
+        />
+        <div
+          className="absolute left-1/2 -top-[6px] w-0 h-0 
+                     border-l-[10px] border-l-transparent 
+                     border-r-[10px] border-r-transparent 
+                     border-b-[22px] border-b-yellow-400 
+                     transition-transform duration-100 ease-out"
+          style={{ transform: `translateX(-50%) rotate(${arrowAngle}deg)` }}
         />
 
-        {/* رأس السهم */}
-        <div
-          className="absolute left-1/2 top-[calc(50%-82px)] w-0 h-0
-          border-l-[7px] border-l-transparent
-          border-r-[7px] border-r-transparent
-          border-b-[14px] border-b-yellow-400"
-          style={{ transform: `translateX(-50%) rotate(${relativeAngle}deg)` }}
-        />
-
-        {/* الكعبة */}
-        <span className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-3xl ${isAligned ? "animate-bounce" : ""}`}>
+        <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-5xl drop-shadow-md">
           🕋
         </span>
+
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 text-xs font-bold text-white">N</div>
       </div>
 
-      <p className="mt-4 text-sm text-center max-w-sm">
-        ⚠️ حرّك الموبايل شكل 8 (∞) لو الاتجاه مش مظبوط
+      <p className="mt-8 text-gray-700 dark:text-gray-300 text-sm max-w-sm text-center leading-relaxed">
+        ⚠️ حرّك الهاتف بشكل رقم 8 لمعايرة البوصلة إذا كان الاتجاه غير دقيق.<br />
+        الاتجاه محسوب بدقة حسب موقعك الجغرافي.
       </p>
     </div>
   );
