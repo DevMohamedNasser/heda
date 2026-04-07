@@ -11,7 +11,6 @@ export default function QiblaPage() {
   const smoothFactor = 0.18;
   const absoluteWorking = useRef(false);
 
-  // Calculate Qibla direction
   function getQiblaAngle(lat: number, lng: number): number {
     const kaabaLat = 21.4225 * (Math.PI / 180);
     const kaabaLng = 39.8262 * (Math.PI / 180);
@@ -23,11 +22,9 @@ export default function QiblaPage() {
       Math.cos(userLat) * Math.tan(kaabaLat) -
       Math.sin(userLat) * Math.cos(kaabaLng - userLng);
 
-    const angle = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
-    return angle;
+    return ((Math.atan2(y, x) * 180 / Math.PI + 360) % 360);
   }
 
-  // Smooth heading
   function smoothHeading(prev: number, next: number, factor: number): number {
     let diff = next - prev;
     if (diff > 180) diff -= 360;
@@ -37,7 +34,7 @@ export default function QiblaPage() {
 
   const normalize = (angle: number) => ((angle % 360) + 360) % 360;
 
-  // ==================== GPS ====================
+  // GPS
   useEffect(() => {
     if (!navigator.geolocation) {
       setError("المتصفح لا يدعم تحديد الموقع");
@@ -54,7 +51,7 @@ export default function QiblaPage() {
     );
   }, []);
 
-  // ==================== Compass ====================
+  // Compass
   useEffect(() => {
     if (qiblaAngle === null) return;
 
@@ -62,9 +59,7 @@ export default function QiblaPage() {
       if (e.alpha === null) return;
       absoluteWorking.current = true;
 
-      let heading = (360 - e.alpha) % 360;
-      heading = normalize(heading);
-
+      let heading = normalize(360 - e.alpha);
       const smooth = smoothHeading(lastHeadingRef.current, heading, smoothFactor);
       lastHeadingRef.current = smooth;
       setDeviceHeading(smooth);
@@ -74,16 +69,13 @@ export default function QiblaPage() {
       if (absoluteWorking.current) return;
 
       let heading: number | null = null;
-
       if (typeof (e as any).webkitCompassHeading === "number") {
         heading = (e as any).webkitCompassHeading;
       } else if (e.alpha !== null) {
-        heading = (360 - e.alpha) % 360;
+        heading = normalize(360 - e.alpha);
       }
 
       if (heading === null) return;
-      heading = normalize(heading);
-
       const smooth = smoothHeading(lastHeadingRef.current, heading, smoothFactor);
       lastHeadingRef.current = smooth;
       setDeviceHeading(smooth);
@@ -116,19 +108,15 @@ export default function QiblaPage() {
     };
   }, [qiblaAngle]);
 
-  // Correct arrow rotation (anti-clockwise when device turns clockwise)
+  // ←←← CLOCKWISE ROTATION FIX ←←←
   const arrowAngle =
     qiblaAngle !== null && deviceHeading !== null
-      ? normalize(qiblaAngle - deviceHeading)
+      ? normalize(deviceHeading - qiblaAngle)   // ← This makes it rotate clockwise
       : null;
 
-  if (error) {
-    return <p className="text-red-500 text-center mt-10">{error}</p>;
-  }
+  if (error) return <p className="text-red-500 text-center mt-10">{error}</p>;
 
-  if (arrowAngle === null) {
-    return <p className="text-center mt-10">جاري تحديد اتجاه القبلة...</p>;
-  }
+  if (arrowAngle === null) return <p className="text-center mt-10">جاري تحديد اتجاه القبلة...</p>;
 
   return (
     <div className="flex flex-col items-center justify-center h-screen bg-gray-100 dark:bg-black px-4">
@@ -139,9 +127,9 @@ export default function QiblaPage() {
       <div className="relative w-64 h-64 rounded-full bg-gray-800 dark:bg-gray-900 shadow-xl">
         <div className="absolute inset-0 border-8 border-gray-700 dark:border-gray-600 rounded-full" />
 
-        {/* Qibla Arrow */}
+        {/* Qibla Arrow - now rotates clockwise */}
         <div
-          className="absolute left-1/2 top-1/2 w-[4px] h-[110px] bg-yellow-400 origin-bottom transition-transform duration-100 ease-out"
+          className="absolute left-1/2 top-1/2 w-[4px] h-[110px] bg-yellow-400 origin-bottom transition-transform duration-75 ease-out"
           style={{ transform: `translateX(-50%) rotate(${arrowAngle}deg)` }}
         />
         <div
@@ -149,7 +137,7 @@ export default function QiblaPage() {
                      border-l-[10px] border-l-transparent 
                      border-r-[10px] border-r-transparent 
                      border-b-[22px] border-b-yellow-400 
-                     transition-transform duration-100 ease-out"
+                     transition-transform duration-75 ease-out"
           style={{ transform: `translateX(-50%) rotate(${arrowAngle}deg)` }}
         />
 
@@ -161,8 +149,8 @@ export default function QiblaPage() {
       </div>
 
       <p className="mt-8 text-gray-700 dark:text-gray-300 text-sm max-w-sm text-center leading-relaxed">
-        ⚠️ حرّك الهاتف بشكل رقم 8 لمعايرة البوصلة إذا كان الاتجاه غير دقيق.<br />
-        الاتجاه محسوب بدقة حسب موقعك الجغرافي.
+        ⚠️ حرّك الهاتف بشكل رقم 8 لمعايرة البوصلة<br />
+        الاتجاه محسوب بدقة حسب موقعك
       </p>
     </div>
   );
