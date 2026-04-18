@@ -24,7 +24,7 @@ export default function Home() {
     },
     {
       name: "مواقيت الصلاة",
-      href: "/prayer-times",
+      href: "/prayer",
       icon: Clock,
       color: "bg-sky-50 text-sky-700",
     },
